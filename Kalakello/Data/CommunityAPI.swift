@@ -106,7 +106,7 @@ final class CommunityAPI {
     }
 
     func feed(before: Int? = nil) async throws -> [CommunityPost] {
-        var components = URLComponents(url: Self.baseURL.appendingPathComponent("/api/posts"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: endpoint("/api/posts"), resolvingAgainstBaseURL: false)!
         var items = [URLQueryItem(name: "limit", value: "30")]
         if let before { items.append(URLQueryItem(name: "before", value: String(before))) }
         components.queryItems = items
@@ -162,8 +162,12 @@ final class CommunityAPI {
 
     private struct LogoutResponse: Decodable { let ok: Bool }
 
+    private func endpoint(_ path: String) -> URL {
+        URL(string: path, relativeTo: Self.baseURL)!.absoluteURL
+    }
+
     private func request<T: Decodable>(path: String) async throws -> T {
-        let (data, response) = try await session.data(from: Self.baseURL.appendingPathComponent(path))
+        let (data, response) = try await session.data(from: endpoint(path))
         try validate(response: response, data: data)
         return try JSONDecoder().decode(T.self, from: data)
     }
