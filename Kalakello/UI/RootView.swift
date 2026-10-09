@@ -16,7 +16,7 @@ struct RootView: View {
                 .tabItem { Label("Kirja", systemImage: "book.closed.fill") }
                 .tag(AppTab.log)
             SaalisvirtaView()
-                .tabItem { Label("Saalisvirta", systemImage: "fish.fill") }
+                .tabItem { Label("Virta", systemImage: "fish.fill") }
                 .tag(AppTab.saalisvirta)
             AboutView()
                 .tabItem { Label("Tietoa", systemImage: "info.circle.fill") }
