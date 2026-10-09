@@ -1,5 +1,6 @@
 import PhotosUI
 import SwiftUI
+import UIKit
 
 struct SaalisvirtaView: View {
     @State private var posts: [CommunityPost] = []
@@ -126,7 +127,13 @@ struct SaalisvirtaView: View {
                 .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
             }
             .onChange(of: selectedPhoto) { _, item in
-                Task { photoData = try? await item?.loadTransferable(type: Data.self) }
+                Task {
+                    guard let data = try? await item?.loadTransferable(type: Data.self) else {
+                        photoData = nil
+                        return
+                    }
+                    photoData = UIImage(data: data)?.jpegData(compressionQuality: 0.82) ?? data
+                }
             }
             TextField("Kerro saaliista (valinnainen)", text: $caption, axis: .vertical)
                 .lineLimit(2...4)
