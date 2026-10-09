@@ -17,6 +17,7 @@ struct SaalisvirtaView: View {
     @State private var busy = false
     @State private var loading = false
     @State private var errorMessage: String?
+    @State private var postToDelete: CommunityPost?
 
     var body: some View {
         NavigationStack {
@@ -202,6 +203,14 @@ struct SaalisvirtaView: View {
                 } label: {
                     Label("\(post.commentCount)", systemImage: "bubble.right")
                 }
+                if post.canDelete == true {
+                    Button(role: .destructive) {
+                        postToDelete = post
+                    } label: {
+                        Label("Poista", systemImage: "trash")
+                    }
+                    .accessibilityLabel("Poista julkaisu")
+                }
                 Spacer()
             }
             if expandedComments.contains(post.id) {
@@ -230,6 +239,20 @@ struct SaalisvirtaView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
+        .confirmationDialog("Poistetaanko julkaisu?", isPresented: Binding(
+            get: { postToDelete?.id == post.id },
+            set: { if !$0 { postToDelete = nil } }
+        ), titleVisibility: .visible) {
+            Button("Poista julkaisu", role: .destructive) {
+                Task {
+                    await deletePost(post)
+                    postToDelete = nil
+                }
+            }
+            Button("Peruuta", role: .cancel) { postToDelete = nil }
+        } message: {
+            Text("Julkaisu ja sen saaliskuva poistetaan pysyvästi.")
+        }
     }
 
     private var imagePlaceholder: some View {
@@ -290,6 +313,19 @@ struct SaalisvirtaView: View {
             caption = ""
             await reloadFeed()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func deletePost(_ post: CommunityPost) async {
+        busy = true
+        defer { busy = false }
+        do {
+            try await CommunityAPI.shared.deletePost(postID: post.id)
+            posts.removeAll { $0.id == post.id }
+            commentsByPost[post.id] = nil
+            expandedComments.remove(post.id)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func toggleLike(_ post: CommunityPost) async {
