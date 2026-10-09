@@ -1,0 +1,72 @@
+name: iOS build, test and unsigned IPA
+
+# Käynnistyy kun työnnät koodin main-haaraan, tai käsin: Actions → "iOS build…" → Run workflow.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen and generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          xcodebuild -version
+          UDID=$(xcrun simctl list devices available iPhone | grep -m1 -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
+          echo "Using simulator $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build and run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Kalakello.xcodeproj \
+            -scheme Kalakello \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log
+
+      - name: Summarise errors (copy these to Claude if the build fails)
+        if: always()
+        run: |
+          {
+            echo '### Compiler errors / failed tests'
+            echo '```'
+            grep -E "error:|Test Case .* failed|XCTAssert" build.log | sort -u | head -60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload full build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Build unsigned .ipa (for Sideloadly / AltStore)
+        run: |
+          xcodebuild build \
+            -project Kalakello.xcodeproj \
+            -scheme Kalakello \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Kalakello.app Payload/
+          zip -qr Kalakello.ipa Payload
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kalakello-unsigned-ipa
+          path: Kalakello.ipa
