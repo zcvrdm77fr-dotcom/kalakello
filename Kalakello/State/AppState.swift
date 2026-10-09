@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 import Observation
 
-enum AppTab: Hashable { case today, map, log, about }
+enum AppTab: Hashable { case today, map, log, saalisvirta, about }
 
 struct Place: Codable, Equatable, Hashable {
     var name: String
