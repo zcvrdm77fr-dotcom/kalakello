@@ -115,6 +115,10 @@ final class CommunityAPI {
         return try JSONDecoder().decode(CommunityFeedResponse.self, from: data).posts
     }
 
+    func deletePost(postID: Int) async throws {
+        let _: LogoutResponse = try await jsonRequest(path: "/api/posts/\(postID)/delete", body: [:])
+    }
+
     func toggleLike(postID: Int) async throws -> CommunityLikeResponse {
         try await jsonRequest(path: "/api/posts/\(postID)/like", body: [:])
     }
