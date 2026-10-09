@@ -15,6 +15,9 @@ struct RootView: View {
             CatchLogView()
                 .tabItem { Label("Kirja", systemImage: "book.closed.fill") }
                 .tag(AppTab.log)
+            SaalisvirtaView()
+                .tabItem { Label("Saalisvirta", systemImage: "fish.fill") }
+                .tag(AppTab.saalisvirta)
             AboutView()
                 .tabItem { Label("Tietoa", systemImage: "info.circle.fill") }
                 .tag(AppTab.about)
