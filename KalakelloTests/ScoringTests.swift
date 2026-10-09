@@ -64,24 +64,35 @@ final class ForecastParserTests: XCTestCase {
     private func json(windNullAt: Int? = nil) throws -> Data {
         let base = 1_760_000_400.0 // aligned to a full hour
         let n = 10
-        let times = (0..<n).map { base + Double($0) * 3600 }
+        
+        let times = (0..<n).map { base + Double($0) * 3600.0 }
         var wind: [Any] = (0..<n).map { _ in 3.0 }
         if let i = windNullAt { wind[i] = NSNull() }
+        
+        let temps = (0..<n).map { 10.0 + Double($0) }
+        let pressures = (0..<n).map { 1010.0 - Double($0) }
+        let clouds = (0..<n).map { _ in 40.0 }
+        
+        let hourlyObj: [String: Any] = [
+            "time": times,
+            "temperature_2m": temps,
+            "pressure_msl": pressures,
+            "wind_speed_10m": wind,
+            "cloud_cover": clouds
+        ]
+        
+        let dailyObj: [String: Any] = [
+            "time": [base - 4.0 * 3600.0],
+            "sunrise": [base + 2.0 * 3600.0],
+            "sunset": [base + 15.0 * 3600.0]
+        ]
+        
         let obj: [String: Any] = [
             "timezone": "Europe/Helsinki",
-            "hourly": [
-                "time": times,
-                "temperature_2m": (0..<n).map { 10.0 + Double($0) },
-                "pressure_msl": (0..<n).map { 1010.0 - Double($0) },
-                "wind_speed_10m": wind,
-                "cloud_cover": (0..<n).map { _ in 40.0 }
-            ],
-            "daily": [
-                "time": [base - 4 * 3600],
-                "sunrise": [base + 2 * 3600],
-                "sunset": [base + 15 * 3600]
-            ]
+            "hourly": hourlyObj,
+            "daily": dailyObj
         ]
+        
         return try JSONSerialization.data(withJSONObject: obj)
     }
 
@@ -100,8 +111,6 @@ final class ForecastParserTests: XCTestCase {
 
     func testLightPhasesFromSunTimes() throws {
         let f = try ForecastParser.parse(try json())
-        // sunrise is at +2 h, sunset at +15 h.
-        // hour 0 = before the dawn window -> night; hour 3 = dawn window -> twilight; hour 7 = mid-day -> day.
         XCTAssertEqual(f.hours[0].light, .night)
         XCTAssertEqual(f.hours[3].light, .twilight)
         XCTAssertEqual(f.hours[7].light, .day)
@@ -124,9 +133,13 @@ final class MoonTests: XCTestCase {
 
 final class InsightsTests: XCTestCase {
     func testSimilarityHighForTypicalAndLowForOutlier() {
-        let samples = (0..<8).map { i in
-            CatchSample(temp: 12 + Double(i % 3), wind: 3 + Double(i % 2), cloud: 60, pressureDelta: -1.5, hour: 6, score: 75)
+        var samples: [CatchSample] = []
+        for i in 0..<8 {
+            let temp = 12.0 + Double(i % 3)
+            let wind = 3.0 + Double(i % 2)
+            samples.append(CatchSample(temp: temp, wind: wind, cloud: 60, pressureDelta: -1.5, hour: 6, score: 75))
         }
+        
         let insights = PersonalInsights.make(from: samples)!
         let typical = Conditions(temp: 13, pressure: 1010, pressure6hAgo: 1011.5, wind: 3.5, cloud: 60, hour: 6, light: nil)
         let outlier = Conditions(temp: 28, pressure: 1030, pressure6hAgo: 1024, wind: 12, cloud: 0, hour: 14, light: nil)
